@@ -93,8 +93,16 @@ impl FileManager {
         }
 
         self.current_path.push(&entry.name);
-        self.position = 0;
-        self.update_entries().unwrap();
+
+        match self.update_entries() {
+            Ok(_) => {
+                self.position = 0;
+            }
+            Err(_) => {
+                self.current_path.pop();
+                execute!(self.buffer, SetBackgroundColor(Color::Blue)).unwrap();
+            }
+        }
     }
 
     fn goto_parent_dir(&mut self) {
