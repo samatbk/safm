@@ -3,7 +3,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
     style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
-    terminal::{self, Clear, ClearType},
+    terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
 use std::{
@@ -15,14 +15,6 @@ use std::{
 };
 
 use anyhow::{bail, Result};
-
-struct Cleanup;
-
-impl Drop for Cleanup {
-    fn drop(&mut self) {
-        terminal::disable_raw_mode().expect("Could not enter to raw mode");
-    }
-}
 
 #[derive(Clone)]
 struct Entry {
@@ -129,7 +121,11 @@ impl FileManager {
                     code: KeyCode::Char('q'),
                     modifiers: KeyModifiers::NONE,
                     ..
-                } => exit(1),
+                } => {
+                    execute!(io::stdout(), LeaveAlternateScreen).unwrap();
+                    terminal::disable_raw_mode().expect("Could not exit to raw mode");
+                    exit(0);
+                }
                 KeyEvent {
                     code: KeyCode::Char('j'),
                     modifiers: KeyModifiers::NONE,
@@ -181,9 +177,8 @@ impl FileManager {
 }
 
 fn main() {
-    let _cleanup = Cleanup;
-
     terminal::enable_raw_mode().expect("Could not enter to raw mode");
+    execute!(io::stdout(), EnterAlternateScreen).unwrap();
 
     let mut fm = FileManager::new(env::current_dir().unwrap());
 
