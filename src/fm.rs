@@ -19,6 +19,8 @@ use anyhow::{bail, Result};
 
 pub struct FileManager {
     position: usize,
+    position_history: Vec<usize>,
+
     entries: Vec<Entry>,
     buffer: Cursor<Vec<u8>>,
     current_path: PathBuf,
@@ -28,6 +30,7 @@ impl FileManager {
     pub fn new(directory: PathBuf) -> Self {
         Self {
             position: 0,
+            position_history: Vec::new(),
             entries: vec![],
             buffer: Cursor::new(Vec::new()),
             current_path: directory,
@@ -64,7 +67,7 @@ impl FileManager {
         if !entry.metadata.is_dir() {
             return;
         }
-
+        self.position_history.push(self.position);
         self.current_path.push(&entry.name);
 
         match self.update_entries() {
@@ -83,7 +86,11 @@ impl FileManager {
             self.current_path = parent_dir.into();
         }
 
-        self.position = 0;
+        self.position = match self.position_history.pop() {
+            Some(history) => history,
+            None => 0,
+        };
+
         self.update_entries().unwrap();
     }
 
