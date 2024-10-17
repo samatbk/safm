@@ -1,8 +1,8 @@
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
-    execute,
-    style::{Color, SetBackgroundColor},
+    execute, queue,
+    style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
     terminal::{self, Clear, ClearType, LeaveAlternateScreen},
 };
 
@@ -21,6 +21,7 @@ pub struct FileManager {
     position: usize,
     position_history: Vec<usize>,
 
+    term_height: u16,
     entries: Vec<Entry>,
     buffer: Cursor<Vec<u8>>,
     current_path: PathBuf,
@@ -32,15 +33,18 @@ impl FileManager {
             position: 0,
             position_history: Vec::new(),
             entries: vec![],
+            term_height: terminal::size().unwrap().1,
             buffer: Cursor::new(Vec::new()),
             current_path: directory,
         }
     }
 
     fn update_buffer(&mut self) -> Result<()> {
-        let start = self.position.saturating_sub(9);
+        let amount: usize = (self.term_height - 2).into();
 
-        for (i, entry) in self.entries.iter().enumerate().skip(start).take(18) {
+        let start = self.position.saturating_sub(amount / 2);
+
+        for (i, entry) in self.entries.iter().enumerate().skip(start).take(amount) {
             entry.write(i == self.position, &mut self.buffer)?;
         }
         Ok(())
@@ -97,8 +101,15 @@ impl FileManager {
     pub fn cycle(&mut self) -> Result<()> {
         let mut stdout = io::stdout();
 
-        execute!(self.buffer, Clear(ClearType::All), cursor::MoveTo(0, 0)).unwrap();
+        self.buffer.get_mut().clear();
+        queue!(self.buffer, Clear(ClearType::All), cursor::MoveTo(0, 0)).unwrap();
 
+        queue!(
+            self.buffer,
+            SetForegroundColor(Color::Red),
+            Print(format!("== safm == {}\r\n", self.current_path.display())),
+            ResetColor
+        )?;
         self.update_buffer()?;
         stdout.write_all(&self.buffer.get_ref())?;
         stdout.flush()?;
@@ -118,12 +129,20 @@ impl FileManager {
                     code: KeyCode::Char('j'),
                     modifiers: KeyModifiers::NONE,
                     ..
-                } => self.move_cursor_down(),
+                } => {
+                    if !self.entries.is_empty() {
+                        self.move_cursor_down()
+                    }
+                }
                 KeyEvent {
                     code: KeyCode::Char('k'),
                     modifiers: KeyModifiers::NONE,
                     ..
-                } => self.move_cursor_up(),
+                } => {
+                    if !self.entries.is_empty() {
+                        self.move_cursor_up()
+                    }
+                }
                 KeyEvent {
                     code: KeyCode::Char('l'),
                     modifiers: KeyModifiers::NONE,
