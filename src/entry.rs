@@ -19,9 +19,9 @@ impl Entry {
     pub fn write(&self, highlight: bool, buffer: &mut Cursor<Vec<u8>>) -> Result<()> {
         let (divisor, symbol) = match self.metadata.size() {
             0..1_000 => (1.0, ""),
-            1_000..1_000_000 => (1000.0, "kb"),
-            1_000_000..1_000_000_000 => (1_000_000.0, "mb"),
-            _ => (1_000_000_000.0, "gb"),
+            1_000..1_000_000 => (1000.0, "K"),
+            1_000_000..1_000_000_000 => (1_000_000.0, "M"),
+            _ => (1_000_000_000.0, "G"),
         };
 
         let mode = self.metadata.permissions().mode();

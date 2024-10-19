@@ -1,9 +1,7 @@
 use crossterm::{
-    cursor,
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
-    execute, queue,
-    style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
-    terminal::{self, Clear, ClearType, LeaveAlternateScreen},
+    cursor, queue,
+    style::{Color, Print, ResetColor, SetForegroundColor},
+    terminal::{self, Clear, ClearType},
 };
 
 use crate::entry::Entry;
@@ -12,7 +10,6 @@ use std::{
     fs::{self},
     io::{self, Cursor, Write},
     path::PathBuf,
-    process::exit,
 };
 
 use anyhow::{bail, Result};
@@ -50,55 +47,7 @@ impl FileManager {
         Ok(())
     }
 
-    fn move_cursor_up(&mut self) {
-        if self.position == 0 {
-            self.position = self.entries.len() - 1;
-        } else {
-            self.position -= 1;
-        }
-    }
-
-    fn move_cursor_down(&mut self) {
-        if self.position == self.entries.len() - 1 {
-            self.position = 0;
-        } else {
-            self.position += 1;
-        }
-    }
-
-    fn enter_to_dir(&mut self) {
-        let entry = &self.entries[self.position];
-        if !entry.metadata.is_dir() {
-            return;
-        }
-        self.position_history.push(self.position);
-        self.current_path.push(&entry.name);
-
-        match self.update_entries() {
-            Ok(_) => {
-                self.position = 0;
-            }
-            Err(_) => {
-                self.current_path.pop();
-                execute!(self.buffer, SetBackgroundColor(Color::Blue)).unwrap();
-            }
-        }
-    }
-
-    fn goto_parent_dir(&mut self) {
-        if let Some(parent_dir) = self.current_path.parent() {
-            self.current_path = parent_dir.into();
-        }
-
-        self.position = match self.position_history.pop() {
-            Some(history) => history,
-            None => 0,
-        };
-
-        self.update_entries().unwrap();
-    }
-
-    pub fn cycle(&mut self) -> Result<()> {
+    pub fn draw_ui(&mut self) -> Result<()> {
         let mut stdout = io::stdout();
 
         self.buffer.get_mut().clear();
@@ -113,49 +62,6 @@ impl FileManager {
         self.update_buffer()?;
         stdout.write_all(&self.buffer.get_ref())?;
         stdout.flush()?;
-
-        if let Event::Key(event) = event::read().expect("Failed to read line") {
-            match event {
-                KeyEvent {
-                    code: KeyCode::Char('q'),
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => {
-                    execute!(io::stdout(), LeaveAlternateScreen).unwrap();
-                    terminal::disable_raw_mode().expect("Could not exit to raw mode");
-                    exit(0);
-                }
-                KeyEvent {
-                    code: KeyCode::Char('j'),
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => {
-                    if !self.entries.is_empty() {
-                        self.move_cursor_down()
-                    }
-                }
-                KeyEvent {
-                    code: KeyCode::Char('k'),
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => {
-                    if !self.entries.is_empty() {
-                        self.move_cursor_up()
-                    }
-                }
-                KeyEvent {
-                    code: KeyCode::Char('l'),
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => self.enter_to_dir(),
-                KeyEvent {
-                    code: KeyCode::Char('h'),
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                } => self.goto_parent_dir(),
-                _ => {}
-            }
-        }
 
         Ok(())
     }
@@ -180,5 +86,45 @@ impl FileManager {
 
         self.entries = entries.clone();
         Ok(())
+    }
+
+    pub fn position(&self) -> usize {
+        self.position
+    }
+
+    pub fn set_position(&mut self, position: usize) {
+        self.position = position;
+    }
+
+    pub fn entries(&self) -> &Vec<Entry> {
+        &self.entries
+    }
+
+    pub fn entries_mut(&mut self) -> &mut Vec<Entry> {
+        &mut self.entries
+    }
+
+    pub fn current_path(&mut self) -> &PathBuf {
+        &self.current_path
+    }
+
+    pub fn current_path_mut(&mut self) -> &mut PathBuf {
+        &mut self.current_path
+    }
+
+    pub fn set_current_path(&mut self, path: PathBuf) {
+        self.current_path = path;
+    }
+
+    pub fn position_history(&mut self) -> &Vec<usize> {
+        &self.position_history
+    }
+
+    pub fn position_history_mut(&mut self) -> &mut Vec<usize> {
+        &mut self.position_history
+    }
+
+    pub fn buffer_mut(&mut self) -> &mut Cursor<Vec<u8>> {
+        &mut self.buffer
     }
 }
