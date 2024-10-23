@@ -1,6 +1,6 @@
 use crossterm::{
     cursor, queue,
-    style::{Color, Print, ResetColor, SetForegroundColor},
+    style::{Attribute, Color, Print, ResetColor, SetAttribute, SetForegroundColor},
     terminal::{self, Clear, ClearType},
 };
 
@@ -55,8 +55,10 @@ impl FileManager {
 
         queue!(
             self.buffer,
-            SetForegroundColor(Color::Red),
-            Print(format!("== safm == {}\r\n", self.current_path.display())),
+            SetAttribute(Attribute::Bold),
+            SetForegroundColor(Color::Cyan),
+            Print(format_args!("{}:\r\n", self.current_path.display())),
+            SetAttribute(Attribute::Reset),
             ResetColor
         )?;
         self.update_buffer()?;

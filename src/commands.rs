@@ -64,7 +64,7 @@ impl Command for EnterToDirCommand {
         let position = fm.position();
 
         if let Some(entry) = fm.entries().get(position).cloned() {
-            if !entry.metadata.is_dir() {
+            if entry.metadata.is_file() {
                 bail!("Entry is a file instead of dir");
             }
 

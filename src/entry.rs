@@ -27,7 +27,13 @@ impl Entry {
         let mode = self.metadata.permissions().mode();
         let perms = format!(
             "{}{}{}{}{}{}{}{}{}{} ",
-            if self.metadata.is_dir() { 'd' } else { '-' },
+            if self.metadata.is_symlink() {
+                'l'
+            } else if self.metadata.is_dir() {
+                'd'
+            } else {
+                '-'
+            },
             if mode & 0o400 != 0 { 'r' } else { '-' }, // User read
             if mode & 0o200 != 0 { 'w' } else { '-' }, // User write
             if mode & 0o100 != 0 { 'x' } else { '-' }, // User execute
@@ -42,27 +48,42 @@ impl Entry {
         queue!(
             buffer,
             if highlight {
-                SetBackgroundColor(Color::DarkGrey)
+                SetBackgroundColor(Color::Rgb {
+                    r: 80,
+                    g: 73,
+                    b: 69,
+                })
             } else {
                 SetBackgroundColor(Color::Reset)
             },
-            SetForegroundColor(Color::Blue),
+            SetForegroundColor(Color::Rgb {
+                r: 204,
+                g: 36,
+                b: 29
+            }),
             Print(perms),
             SetForegroundColor(Color::Yellow),
-            Print(format!(
+            Print(format_args!(
                 "{: <8}",
                 if self.metadata.is_dir() {
-                    "-".to_string()
+                    "~".to_string()
                 } else {
                     format!("{:.1}{}", self.metadata.size() as f32 / divisor, symbol)
                 }
             )),
             if self.metadata.is_dir() {
                 SetForegroundColor(Color::Blue)
+            } else if self.metadata.is_symlink() {
+                SetForegroundColor(Color::Yellow)
             } else {
-                SetForegroundColor(Color::Reset)
+                SetForegroundColor(Color::Rgb {
+                    r: 235,
+                    g: 219,
+                    b: 178,
+                })
             },
-            Print(format!(" {: <32}\r\n", self.name)),
+            Print(if self.metadata.is_symlink() { "@" } else { " " }),
+            Print(format_args!("{: <32}\r\n", self.name)),
             ResetColor
         )?;
 
