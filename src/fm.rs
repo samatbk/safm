@@ -1,5 +1,5 @@
 use crossterm::{
-    cursor, queue,
+    cursor,
     style::{Attribute, Color, Print, ResetColor, SetAttribute, SetForegroundColor},
     terminal::{self, Clear, ClearType},
 };
@@ -22,6 +22,8 @@ pub struct FileManager {
     entries: Vec<Entry>,
     buffer: Cursor<Vec<u8>>,
     current_path: PathBuf,
+
+    is_viewing_file: bool,
 }
 
 impl FileManager {
@@ -33,6 +35,7 @@ impl FileManager {
             term_height: terminal::size().unwrap().1,
             buffer: Cursor::new(Vec::new()),
             current_path: directory,
+            is_viewing_file: false,
         }
     }
 
@@ -51,9 +54,10 @@ impl FileManager {
         let mut stdout = io::stdout();
 
         self.buffer.get_mut().clear();
-        queue!(self.buffer, Clear(ClearType::All), cursor::MoveTo(0, 0)).unwrap();
 
-        queue!(
+        crossterm::queue!(self.buffer, Clear(ClearType::All), cursor::MoveTo(0, 0))?;
+
+        crossterm::queue!(
             self.buffer,
             SetAttribute(Attribute::Bold),
             SetForegroundColor(Color::Cyan),
@@ -61,10 +65,21 @@ impl FileManager {
             SetAttribute(Attribute::Reset),
             ResetColor
         )?;
-        self.update_buffer()?;
-        stdout.write_all(&self.buffer.get_ref())?;
-        stdout.flush()?;
 
+        if !self.is_viewing_file {
+            self.update_buffer()?;
+            stdout.write_all(&self.buffer.get_ref())?;
+        }
+
+        Ok(())
+    }
+
+    pub fn write_to_buffer(&mut self, content: String) -> Result<()> {
+        let mut stdout = io::stdout();
+
+        crossterm::queue!(self.buffer, Clear(ClearType::All), cursor::MoveTo(0, 0))?;
+        crossterm::execute!(self.buffer, Print(content))?;
+        stdout.write_all(&self.buffer.get_ref())?;
         Ok(())
     }
 
@@ -106,7 +121,7 @@ impl FileManager {
         &mut self.entries
     }
 
-    pub fn current_path(&mut self) -> &PathBuf {
+    pub fn current_path(&self) -> &PathBuf {
         &self.current_path
     }
 
@@ -118,7 +133,7 @@ impl FileManager {
         self.current_path = path;
     }
 
-    pub fn position_history(&mut self) -> &Vec<usize> {
+    pub fn position_history(&self) -> &Vec<usize> {
         &self.position_history
     }
 
@@ -128,5 +143,17 @@ impl FileManager {
 
     pub fn buffer_mut(&mut self) -> &mut Cursor<Vec<u8>> {
         &mut self.buffer
+    }
+
+    pub fn current_entry(&self) -> &Entry {
+        &self.entries[self.position]
+    }
+
+    pub fn buffer(&self) -> &Cursor<Vec<u8>> {
+        &self.buffer
+    }
+
+    pub fn toggle_file_view(&mut self) {
+        self.is_viewing_file = !self.is_viewing_file
     }
 }

@@ -3,7 +3,7 @@ use crossterm::{
     style::{Color, SetBackgroundColor},
     terminal::{self, LeaveAlternateScreen},
 };
-use std::{cell::RefCell, io, process::exit, rc::Rc};
+use std::{cell::RefCell, fs, io, path::PathBuf, process::exit, rc::Rc};
 
 use crate::fm::FileManager;
 use anyhow::{bail, Result};
@@ -101,6 +101,34 @@ impl Command for GoToParentDirCommand {
         fm.set_position(position);
 
         fm.update_entries()?;
+
+        Ok(())
+    }
+}
+
+pub struct ShowFileCommand;
+
+impl Command for ShowFileCommand {
+    fn execute(&self, fm: Rc<RefCell<FileManager>>) -> Result<()> {
+        let fm_borrow = fm.borrow();
+
+        let current_path = fm_borrow.current_path();
+        let entry = fm_borrow.current_entry();
+
+        if !entry.metadata.is_file() {
+            bail!("Only files are allowed");
+        }
+
+        let mut file_path = PathBuf::from(current_path);
+        file_path.push(PathBuf::from(&entry.name));
+        let content = fs::read_to_string(&file_path)?;
+        let content_with_crlf = content.replace("\n", "\r\n");
+
+        drop(fm_borrow);
+
+        let mut fm_mut = fm.borrow_mut();
+        fm_mut.write_to_buffer(content_with_crlf)?;
+        fm_mut.toggle_file_view();
 
         Ok(())
     }

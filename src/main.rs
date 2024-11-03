@@ -1,4 +1,6 @@
 use anyhow::Result;
+use std::io::Write;
+
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
@@ -7,7 +9,7 @@ use crossterm::{
 use safm::{
     commands::{
         Command, EnterToDirCommand, GoToParentDirCommand, MoveCursorDownCommand,
-        MoveCursorUpCommand, QuitCommand,
+        MoveCursorUpCommand, QuitCommand, ShowFileCommand,
     },
     fm::FileManager,
 };
@@ -15,9 +17,9 @@ use std::{cell::RefCell, collections::HashMap, env, io, rc::Rc};
 
 fn main() -> Result<()> {
     terminal::enable_raw_mode().expect("Could not enter raw mode");
-    execute!(io::stdout(), EnterAlternateScreen).unwrap();
+    execute!(io::stdout(), EnterAlternateScreen)?;
 
-    let fm = Rc::new(RefCell::new(FileManager::new(env::current_dir().unwrap())));
+    let fm = Rc::new(RefCell::new(FileManager::new(env::current_dir()?)));
 
     let mut command_map: HashMap<KeyCode, Box<dyn Command>> = HashMap::new();
     command_map.insert(KeyCode::Char('q'), Box::new(QuitCommand));
@@ -25,6 +27,7 @@ fn main() -> Result<()> {
     command_map.insert(KeyCode::Char('j'), Box::new(MoveCursorDownCommand));
     command_map.insert(KeyCode::Char('l'), Box::new(EnterToDirCommand));
     command_map.insert(KeyCode::Char('h'), Box::new(GoToParentDirCommand));
+    command_map.insert(KeyCode::Enter, Box::new(ShowFileCommand));
 
     fm.borrow_mut().update_entries()?;
 
@@ -33,10 +36,10 @@ fn main() -> Result<()> {
 
         if let Event::Key(event) = event::read()? {
             if let Some(cmd) = command_map.get(&event.code) {
-                if let Err(error) = cmd.execute(Rc::clone(&fm)) {
-                    eprintln!("Command error: {}", error);
-                }
+                cmd.execute(Rc::clone(&fm))?;
             }
         }
+
+        io::stdout().flush()?;
     }
 }
